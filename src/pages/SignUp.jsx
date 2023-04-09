@@ -57,7 +57,20 @@ const SignIn = () => {
       await setDoc(doc(db, "users", user.uid), formDataCopy);
       navigate("/");
     } catch (error) {
-      toast.error("something went wrong with the registration");
+      console.log(error.message);
+      if (error.message.includes("missing-password")) {
+        toast.error("missing-password");
+      } else if (error.message.includes("missing-email")) {
+        toast.error("missing-email");
+      } else if (error.message.includes("weak-password")) {
+        toast.error("weak password");
+      } else if (error.message.includes("invalid-email")) {
+        toast.error("invalid-email");
+      } else if (error.message.includes("email-already-in-use")) {
+        toast.error("email-already-in-use");
+      } else {
+        toast.error("something went wrong with the registration");
+      }
     }
   }
 
