@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import { AiFillEyeInvisible, AiFillEye } from "react-icons/ai";
 import { useNavigate } from "react-router-dom";
 import OAuth from "../components/OAuth";
+import { toast } from "react-toastify";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 
-const SignUp = () => {
+const SignIn = () => {
   const [showPassWord, setShowPassWord] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -27,6 +29,30 @@ const SignUp = () => {
     setShowPassWord((prev) => !prev);
   };
 
+  async function signInSubmit(e) {
+    e.preventDefault();
+
+    try {
+      const auth = getAuth();
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        passWord
+      );
+      if (userCredential.user) {
+        navigate("/");
+      }
+      console.log(userCredential);
+    } catch (error) {
+      console.log(error.message);
+      if (error.message.includes("user-not-found")) {
+        toast.error("user-not-found");
+      } else if (error.message.includes("wrong-password")) {
+        toast.error("wrong-password");
+      } else toast.error("something went wrong");
+    }
+  }
+
   return (
     <section>
       <h1 className="text-3xl text-center mt-6 font-bold">Sign In</h1>
@@ -40,7 +66,7 @@ const SignUp = () => {
           />
         </div>
         <div className="w-full md:w-[67%] lg:w-[40%] lg:ml-20">
-          <form>
+          <form onSubmit={signInSubmit}>
             <input
               type="email"
               id="email"
@@ -111,4 +137,4 @@ const SignUp = () => {
   );
 };
 
-export default SignUp;
+export default SignIn;

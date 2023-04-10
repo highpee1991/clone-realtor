@@ -11,7 +11,7 @@ import { db } from "../firebase";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { toast } from "react-toastify";
 
-const SignIn = () => {
+const SignUp = () => {
   const [showPassWord, setShowPassWord] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -167,4 +167,4 @@ const SignIn = () => {
   );
 };
 
-export default SignIn;
+export default SignUp;
