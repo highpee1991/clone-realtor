@@ -44,7 +44,6 @@ const SignIn = () => {
       }
       console.log(userCredential);
     } catch (error) {
-      console.log(error.message);
       if (error.message.includes("user-not-found")) {
         toast.error("user-not-found");
       } else if (error.message.includes("wrong-password")) {
