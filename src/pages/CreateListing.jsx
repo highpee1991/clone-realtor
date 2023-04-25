@@ -1,8 +1,21 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import Spinner from "../components/Spinner";
 import { toast } from "react-toastify";
+import {
+  getStorage,
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+} from "firebase/storage";
+import { getAuth } from "firebase/auth";
+import { v4 as uuidv4 } from "uuid";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebase";
+import { useNavigate } from "react-router-dom";
 
-const CreateListing = () => {
+function CreateListing() {
+  const auth = getAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [latLongEnabled, setLatLongEnable] = useState(true);
   const [formData, setFormData] = useState({
@@ -39,38 +52,37 @@ const CreateListing = () => {
     images,
   } = formData;
 
-  const onChange = (e) => {
-    e.preventDefault();
-
-    const { value, files, id } = e.target;
+  function onChange(e) {
+    // const { value, files, id } = e.target;
 
     let boolean = null;
-    if (value === "true") {
+    if (e.target.value === "true") {
       boolean = true;
     }
-    if (value === "false") {
+    if (e.target.value === "false") {
       boolean = false;
     }
     // setting files value
-    if (files) {
+    if (e.target.files) {
       setFormData((prev) => ({
         ...prev,
-        images: files,
+        images: e.target.files,
       }));
     }
     // boolean, number, value
-    if (!files) {
+    if (!e.target.files) {
       setFormData((prev) => ({
         ...prev,
-        [id]: boolean ?? value,
+        [e.target.id]: boolean ?? e.target.value,
       }));
     }
-  };
+  }
 
-  const onSubmit = (e) => {
+  async function onSubmit(e) {
     e.preventDefault();
     setLoading(true);
-    if (discountedPrice >= regularPrice) {
+    if (+discountedPrice >= +regularPrice) {
+      console.log(discountedPrice, regularPrice);
       setLoading(false);
       toast.error("Discounted price need to be less than regular price");
       return;
@@ -81,7 +93,97 @@ const CreateListing = () => {
       toast.error("error! maximum of 6 images can be uploaded");
       return;
     }
-  };
+
+    let geolocation = {};
+    let location;
+    let data;
+
+    if (latLongEnabled) {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${address}&key=${process.env.REACT_APP_GEOCODE_API_KEY}`
+      );
+      data = await response.json();
+      console.log(data);
+
+      geolocation.lat = data.results[0]?.geometry.location.lat ?? 0;
+      geolocation.lng = data.results[0]?.geometry.location.lng ?? 0;
+
+      location = data.status === "ZERO_RESULTS" && undefined;
+
+      if (location === undefined) {
+        setLoading(false);
+        toast.error("Please enter a correct address");
+        return;
+      }
+    } else {
+      geolocation.lat = latitude;
+      geolocation.lng = longitude;
+    }
+
+    async function storeImage(image) {
+      return new Promise((resolve, reject) => {
+        const storage = getStorage();
+        const fileName = `${auth.currentUser.uid}-${image.name}-${uuidv4()}`;
+        const storageRef = ref(storage, fileName);
+        const uploadTask = uploadBytesResumable(storageRef, image);
+
+        uploadTask.on(
+          "state_changed",
+          (snapshot) => {
+            // Observe state change events such as progress, pause, and resume
+            // Get task progress, including the number of bytes uploaded and the total number of bytes to be uploaded
+            const progress =
+              (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log("Upload is " + progress + "% done");
+            switch (snapshot.state) {
+              case "paused":
+                console.log("Upload is paused");
+                break;
+              case "running":
+                console.log("Upload is running");
+                break;
+            }
+          },
+          (error) => {
+            // Handle unsuccessful uploads
+            reject(error);
+          },
+          () => {
+            // Handle successful uploads on complete
+            // For instance, get the download URL: https://firebasestorage.googleapis.com/...
+            getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+              resolve(downloadURL);
+            });
+          }
+        );
+      });
+    }
+
+    const imgUrls = await Promise.all(
+      [...images].map((image) => storeImage(image))
+    ).catch((error) => {
+      setLoading(false);
+      toast.error("Images not uploaded");
+      return;
+    });
+
+    const formDataCopy = {
+      ...formData,
+      imgUrls,
+      geolocation,
+      timeStamp: serverTimestamp(),
+      address: data.results[0]?.formatted_address,
+    };
+    delete formDataCopy.images;
+    !formDataCopy.offer && delete formDataCopy.discountedPrice;
+    delete formDataCopy.latitude;
+    delete formDataCopy.longitude;
+
+    const docRef = await addDoc(collection(db, "listings"), formDataCopy);
+    setLoading(false);
+    toast.success("Listing created");
+    navigate(`/category/${formDataCopy.type}/${docRef.id}`);
+  }
 
   if (loading) {
     return <Spinner />;
@@ -236,6 +338,8 @@ const CreateListing = () => {
               value={address}
               onChange={onChange}
               placeholder="Address"
+              maxLength={40}
+              minLength={8}
               required
               className=" w-full font-semibold text-sm text-gray-700 py-3 px-6 rounded shadow-md bg-white hover:bg-white hover:shadow-lg focus:bg-white focus:shadow-lg  focus:text-gray-700 active:bg-white active:text-gray-700   active:shadow-lg transition duration-150 ease-in-out outline-none border-none "
             />
@@ -265,8 +369,8 @@ const CreateListing = () => {
                   value={longitude}
                   onChange={onChange}
                   required
-                  min={-180}
-                  max={180}
+                  minLength={-180}
+                  maxLength={180}
                   className=" w-full rounded text-center text-sm font-semibold uppercase outline-none border-none px-6 py-3 shadow-md bg-white text-gray-700 transition duration-150 ease-in-out hover:shadow-lg focus:bg-white focus:shadow-lg active:bg-white active:shadow-lg "
                 />
               </div>
@@ -281,6 +385,8 @@ const CreateListing = () => {
               onChange={onChange}
               name="description"
               placeholder="Description"
+              maxLength={32}
+              minLength={8}
               required
               className=" w-full mb-6  font-semibold text-sm text-gray-700 py-3 px-6 rounded shadow-md bg-white hover:bg-white hover:shadow-lg focus:bg-white focus:shadow-lg  focus:text-gray-700 active:bg-white active:text-gray-700   active:shadow-lg transition duration-150 ease-in-out outline-none border-none "
             />
@@ -377,6 +483,6 @@ const CreateListing = () => {
       </div>
     </main>
   );
-};
+}
 
 export default CreateListing;
