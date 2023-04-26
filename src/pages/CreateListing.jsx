@@ -173,6 +173,7 @@ function CreateListing() {
       geolocation,
       timeStamp: serverTimestamp(),
       address: data.results[0]?.formatted_address,
+      userRef: auth.currentUser.uid,
     };
     delete formDataCopy.images;
     !formDataCopy.offer && delete formDataCopy.discountedPrice;
