@@ -80,15 +80,15 @@ const Profile = () => {
         orderBy("timestamp", "desc")
       );
       const querySnap = await getDocs(q);
-      let listing = [];
+      let listings = [];
 
       querySnap.forEach((doc) => {
-        return listing.push({
+        return listings.push({
           id: doc.id,
           data: doc.data(),
         });
       });
-      setListings(listing);
+      setListings(listings);
       setLoading(false);
     }
     fetchUserListings();
@@ -159,12 +159,12 @@ const Profile = () => {
       {!loading && listings.length > 0 && (
         <section className=" max-w-6xl px-3 mt-6 mx-auto">
           <div>
-            <h2 className="  text-center text-2xl font-bold uppercase">
+            <h2 className="  mt-6 text-center text-2xl font-bold uppercase">
               My Listing
             </h2>
           </div>
           <div>
-            <ul>
+            <ul className="sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 mb-6 mt-6">
               {listings.map((listing) => {
                 return (
                   <ListingItem
